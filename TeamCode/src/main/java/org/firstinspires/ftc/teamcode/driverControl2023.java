@@ -140,13 +140,13 @@ public class DriverControl2023 extends LinearOpMode {
             frontRightPower = (y - x - rx) / denominator;
             backRightPower = (y + x - rx) / denominator;
 
-            if(gamepad1.dpad_left){
+            if(gamepad1.dpad_right){
                 frontLeftPower += -0.3;
                 backLeftPower += -0.3;
                 frontRightPower += 0.3;
                 backRightPower += 0.3;
             }
-            if(gamepad1.dpad_right){
+            if(gamepad1.dpad_left){
                 frontLeftPower += 0.3;
                 backLeftPower += 0.3;
                 frontRightPower += -0.3;
