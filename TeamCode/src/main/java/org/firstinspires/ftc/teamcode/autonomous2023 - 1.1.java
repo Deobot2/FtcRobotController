@@ -157,6 +157,7 @@ public class readyAuto extends LinearOpMode
         position = frontRight.getCurrentPosition();
 
         //determine how far you need to go to place on each spike
+        /*
         if (dir.equals("left")) {
             telemetry.addLine("The april tag found is 1, saying to park in the left spike");
             while ((Math.abs(position) - Math.abs(origin)) < (1100)){
@@ -179,7 +180,7 @@ public class readyAuto extends LinearOpMode
         else if (dir.equals("middle")) {
             telemetry.addLine("The cone found is in 2, saying to park in the middle spike");
 
-        }
+        }*/
 
         //Code to release pixel if you need to act
 
