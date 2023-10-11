@@ -52,8 +52,6 @@ public class readyAuto extends LinearOpMode
     double targetY = 1200.0;
     double targetX = 1000.0;
     OpenCvCamera camera;
-    AprilTagDetectionPipeline aprilTagDetectionPipeline;
-
     static final double FEET_PER_METER = 3.28084;
 
     // Lens intrinsics
@@ -66,8 +64,7 @@ public class readyAuto extends LinearOpMode
 
 
     // UNITS ARE METERS
-    double tagsize = 0.166;
-    boolean tagFound = false;
+    boolean objectFound = false;
     // Tag ID 1,2,3 from the 36h11 family
     /*EDIT IF NEEDED!!!*/
 
@@ -75,33 +72,12 @@ public class readyAuto extends LinearOpMode
     int MIDDLE = 2;
     int RIGHT = 3;
 
-    AprilTagDetection tagOfInterest = null;
+    //Use for testing until object detection works.
+    String chosenSpike = "MIDDLE";
 
     @Override
     public void runOpMode()
     {
-        int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());
-        camera = OpenCvCameraFactory.getInstance().createWebcam(hardwareMap.get(WebcamName.class, "Webcam 1"), cameraMonitorViewId);
-        aprilTagDetectionPipeline = new AprilTagDetectionPipeline(tagsize, fx, fy, cx, cy);
-
-        camera.setPipeline(aprilTagDetectionPipeline);
-        camera.openCameraDeviceAsync(new OpenCvCamera.AsyncCameraOpenListener()
-        {
-            @Override
-            public void onOpened()
-            {
-                camera.startStreaming(800,448, OpenCvCameraRotation.UPRIGHT);
-            }
-
-            @Override
-            public void onError(int errorCode)
-            {
-
-            }
-        });
-
-        telemetry.setMsTransmissionInterval(50);
-
 
         //HARDWARE MAPPING HERE etc.
         frontRight = hardwareMap.get(DcMotor.class, "frontRight");
@@ -114,97 +90,27 @@ public class readyAuto extends LinearOpMode
          * This REPLACES waitForStart!
          */
         waitForStart();
-        while (isStarted() && !isStopRequested() && !tagFound)
+        //Once object detection works, make sure to include &&!objectFound so that the move commands don't stack.
+        while (isStarted() && !isStopRequested())
         {
-            ArrayList<AprilTagDetection> currentDetections = aprilTagDetectionPipeline.getLatestDetections();
+    
             String direction;
-
-            if(currentDetections.size() != 0)
-            {
-                //boolean tagFound = false;
-
-                for(AprilTagDetection tag : currentDetections)
-                {
-                    if(tag.id == LEFT || tag.id == MIDDLE || tag.id == RIGHT)
-                    {
-                        tagOfInterest = tag;
-                        tagFound = true;
-                        break;
-                    }
-                }
-
-                if(tagFound)
-                {
-                    telemetry.addLine("Tag of interest is in sight!\n\nLocation data:");
-                    tagToTelemetry(tagOfInterest);
-
-
+            //Make conditional to if(obectFound)
                     //send detection info to movement commands
-                    if (tagOfInterest.id == LEFT) {
-                        moveToSpot("left");
-                    }
-                    else if (tagOfInterest.id == RIGHT) {
-                        moveToSpot("right");
-                    }
-                    else if (tagOfInterest.id == MIDDLE) {
-                        moveToSpot("middle");
-                    }
-                    else {
-                        moveToSpot("error, tag id not found");
-                    }
-                }
-                else
-                {
-                    telemetry.addLine("Don't see tag of interest :(");
-
-                    if(tagOfInterest == null)
-                    {
-                        telemetry.addLine("(The tag has never been seen)");
-                    }
-                    else
-                    {
-                        telemetry.addLine("\nBut we HAVE seen the tag before; last seen at:");
-                        tagToTelemetry(tagOfInterest);
-                    }
-                }
-
-
-
+            if (chosenSpike == LEFT) {
+                moveToSpot("left");
             }
-            else
-            {
-                telemetry.addLine("Don't see tag of interest :(");
-
-                if(tagOfInterest == null)
-                {
-                    telemetry.addLine("(The tag has never been seen)");
-                }
-                else
-                {
-                    telemetry.addLine("\nBut we HAVE seen the tag before; last seen at:");
-                    tagToTelemetry(tagOfInterest);
-                }
-
+            else if (chosenSpike == RIGHT) {
+                moveToSpot("right");
             }
-
+            else if (chosenSpike == MIDDLE) {
+                moveToSpot("middle");
+            }
+            else {
+                moveToSpot("error, spike not determined");
+            }                    
             telemetry.update();
             sleep(20);
-        }
-
-
-
-
-
-        if(tagOfInterest != null)
-        {
-            telemetry.addLine("Tag snapshot:\n");
-            tagToTelemetry(tagOfInterest);
-            telemetry.update();
-        }
-        else
-        {
-            telemetry.addLine("No tag snapshot available, it was never sighted during the init loop :(");
-            telemetry.update();
         }
 
         //PUT AUTON CODE HERE (DRIVER PRESSED THE PLAY BUTTON!)
@@ -223,10 +129,10 @@ public class readyAuto extends LinearOpMode
     }
     void moveToSpot(String dir) {
         //~83 ticks per inch
-
+        int forwardMoveValue = 900;
         origin = frontRight.getCurrentPosition();
         position = frontRight.getCurrentPosition();
-        while ((Math.abs(position) - Math.abs(origin)) < (900)) {
+        while ((Math.abs(position) - Math.abs(origin)) < (forwardMoveValue)) {
             position = frontRight.getCurrentPosition();
             double value = Math.abs(position - origin);
             telemetry.addLine(String.valueOf(value));
@@ -250,17 +156,10 @@ public class readyAuto extends LinearOpMode
         origin = frontRight.getCurrentPosition();
         position = frontRight.getCurrentPosition();
 
+        //determine how far you need to go to place on each spike
         if (dir.equals("left")) {
-            telemetry.addLine("The april tag found is 1, saying to park in the left parking spot");
+            telemetry.addLine("The april tag found is 1, saying to park in the left spike");
             while ((Math.abs(position) - Math.abs(origin)) < (1100)){
-                position = frontRight.getCurrentPosition()-200;
-                double value = Math.abs(position) - Math.abs(origin);
-                telemetry.addLine(String.valueOf(value));
-                telemetry.update();
-                frontRight.setPower(0.5);
-                frontLeft.setPower(-0.5);
-                backRight.setPower(0.5);
-                backLeft.setPower(-0.5);
             }
             frontRight.setPower(0);
             frontLeft.setPower(0);
@@ -268,19 +167,8 @@ public class readyAuto extends LinearOpMode
             backLeft.setPower(0);
         }
         else if (dir.equals("right")) {
-            telemetry.addLine("The april tag found is 3, saying to park in the right parking spot");
+            telemetry.addLine("The cone found is in 3, saying to park in the right spike");
             while (position - origin > (-1100)){
-                position = frontRight.getCurrentPosition()+100;
-
-                double value = position - origin;
-                telemetry.addLine(String.valueOf(value));
-                telemetry.addLine(String.valueOf(origin));
-                telemetry.addLine(String.valueOf(position));
-                telemetry.update();
-                frontRight.setPower(-0.5);
-                frontLeft.setPower(0.5);
-                backRight.setPower(-0.5);
-                backLeft.setPower(0.5);
             }
             frontRight.setPower(0);
             frontLeft.setPower(0);
@@ -289,15 +177,58 @@ public class readyAuto extends LinearOpMode
         }
         //change to else after testing for any errors
         else if (dir.equals("middle")) {
-            telemetry.addLine("The april tag found is 2, saying to park in the middle parking spot");
+            telemetry.addLine("The cone found is in 2, saying to park in the middle spike");
 
         }
-        else {
-            System.out.println("Something went wrong, here is the string sent: ");
-            System.out.println(dir);
+
+        //Code to release pixel if you need to act
+
+        //There are a couple methods for parking in the back zone. For now, reversing to the wall and strafing is best 
+        //test how much drift there is on strafe and determine if rotating, then driving forward is better.
+
+        while ((Math.abs(position) - Math.abs(origin)) < (0)) {
+            position = frontRight.getCurrentPosition();
+            double value = Math.abs(position - origin);
+            telemetry.addLine(String.valueOf(value));
+            telemetry.update();
+            frontRight.setPower(-0.5);
+            frontLeft.setPower(-0.5);
+            backRight.setPower(0.5);
+            backLeft.setPower(0.5);
+            telemetry.addData("At Position",  "%7d :%7d",
+                    frontRight.getCurrentPosition(),
+
+                    backRight.getCurrentPosition());
 
 
         }
+        frontRight.setPower(0);
+        frontLeft.setPower(0);
+        backRight.setPower(0);
+        backLeft.setPower(0);
+
+
+        //Now you need to move right or left, the distance is dependent on which position you get, will have to determine a method for that (maybe two code types).
+        while ((Math.abs(position) - Math.abs(origin)) < (0)) {
+            position = frontRight.getCurrentPosition();
+            double value = Math.abs(position - origin);
+            telemetry.addLine(String.valueOf(value));
+            telemetry.update();
+            frontRight.setPower(-0.5);
+            frontLeft.setPower(-0.5);
+            backRight.setPower(0.5);
+            backLeft.setPower(0.5);
+            telemetry.addData("At Position",  "%7d :%7d",
+                    frontRight.getCurrentPosition(),
+
+                    backRight.getCurrentPosition());
+
+
+        }
+        frontRight.setPower(0);
+        frontLeft.setPower(0);
+        backRight.setPower(0);
+        backLeft.setPower(0);
     }
 }
 
